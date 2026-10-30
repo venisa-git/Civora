@@ -1,3 +1,4 @@
+from difflib import SequenceMatcher
 import streamlit as st
 import json
 import os
@@ -13,6 +14,132 @@ st.set_page_config(
     page_icon="🏙️",
     layout="wide"
 )
+
+
+
+
+st.markdown("""
+<style>
+    /* ===== MAIN APPLICATION ===== */
+    .stApp {
+        background-color: #FFF5F3;
+        color: #49313B;
+    }
+
+    /* ===== HEADINGS ===== */
+    h1, h2, h3 {
+        color: #512638 !important;
+        font-family: Arial, sans-serif;
+        font-weight: 700;
+    }
+
+    p, label, .stMarkdown {
+        color: #49313B;
+    }
+
+    /* ===== SIDEBAR ===== */
+    section[data-testid="stSidebar"] {
+        background-color: #512638;
+    }
+
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] span {
+        color: #FFFFFF !important;
+    }
+
+    /* Sidebar navigation */
+    section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+        color: #FFFFFF !important;
+    }
+
+    /* ===== METRIC CARDS ===== */
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border: 1px solid #F0DDE2;
+        padding: 20px;
+        border-radius: 14px;
+        box-shadow: 0 3px 12px rgba(81, 38, 56, 0.06);
+    }
+
+    div[data-testid="stMetric"] label {
+        color: #795968 !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        color: #963F5C !important;
+    }
+
+    /* ===== BUTTONS ===== */
+    .stButton > button,
+    .stFormSubmitButton > button {
+        background-color: #963F5C;
+        color: #FFFFFF !important;
+        border: 1px solid #963F5C;
+        border-radius: 9px;
+        font-weight: 600;
+        transition: background-color 0.2s ease;
+    }
+
+    .stButton > button:hover,
+    .stFormSubmitButton > button:hover {
+        background-color: #783149;
+        border-color: #783149;
+        color: #FFFFFF !important;
+    }
+
+    /* ===== INPUT FIELDS ===== */
+    input, textarea {
+        background-color: #FFFFFF !important;
+        color: #49313B !important;
+        border-color: #E8C9D1 !important;
+    }
+
+    /* ===== SELECT BOXES ===== */
+    div[data-baseweb="select"] > div {
+        background-color: #FFFFFF;
+        border-color: #E8C9D1;
+    }
+
+    div[data-baseweb="select"] * {
+        color: #49313B !important;
+    }
+
+    /* ===== DATA TABLE ===== */
+    div[data-testid="stDataFrame"] {
+        background-color: #FFFFFF;
+        border: 1px solid #F0DDE2;
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    /* ===== FORM CONTAINERS ===== */
+    div[data-testid="stForm"] {
+        background-color: #FFFFFF;
+        border: 1px solid #F0DDE2;
+        padding: 20px;
+        border-radius: 14px;
+    }
+
+    /* ===== DIVIDERS ===== */
+    hr {
+        border-color: #E8C9D1;
+    }
+
+    /* ===== LINKS ===== */
+    a {
+        color: #963F5C !important;
+    }
+
+</style>
+""", unsafe_allow_html=True)
+
+
+
+
 
 def load_complaints():
     if not os.path.exists(DATA_FILE):
@@ -76,14 +203,144 @@ def analyze_complaint(description, location):
         "reason": reason
     }
 
+def find_possible_duplicates(description, location, category, complaints):
+    possible_duplicates = []
+
+    new_description = str(description).lower().strip()
+    new_location = str(location).lower().strip()
+
+    for complaint in complaints:
+        old_description = str(complaint.get("description", "")).lower().strip()
+        old_location = str(complaint.get("location", "")).lower().strip()
+
+        old_category = complaint.get("category", "")
+
+        similarity = SequenceMatcher(
+            None, new_description, old_description
+        ).ratio()
+
+        same_location = new_location == old_location
+
+        if old_category == category and (
+            similarity >= 0.70 or (same_location and similarity >= 0.45)
+        ):
+            possible_duplicates.append({
+                "complaint_id": complaint.get("complaint_id"),
+                "location": complaint.get("location"),
+                "similarity": round(similarity * 100)
+            })
+
+    return possible_duplicates
+
+
 data = load_complaints()
 complaints = data.get("complaints", [])
 
-st.sidebar.title("🏙️ CiviFix")
-st.sidebar.caption("From Complaints to Action")
-page = st.sidebar.radio("Navigation", ["Submit Complaint", "Admin Dashboard", "Track Complaint", "About"])
+# Top Navigation
+st.markdown("""
+<div style="padding: 10px 0 5px 0;">
+    <h1 style="color:#512638; margin-bottom:0;">🏙️ Civora</h1>
+    <p style="color:#795968; margin-top:0;">
+        Every Voice. One Connected Action.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-if page == "Submit Complaint":
+page = st.radio(
+    "Navigation",
+    ["Home", "Submit Complaint", "Admin Dashboard", "Track Complaint", "About"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.divider()
+
+if page == "Home":
+    st.markdown("""
+    <div style="
+        background: linear-gradient(120deg, #512638, #963F5C);
+        padding: 35px;
+        border-radius: 16px;
+        color: white;
+        margin-bottom: 25px;
+    ">
+        <h1 style="color: #FFFFFF !important; font-size: 42px; font-weight: 800;">
+           Welcome to Civora
+        </h1>
+        <h3 style="color:#FFE5EB !important;">
+            Turning Citizen Complaints Into Real Action.
+        </h3>
+        <p style="color:white !important;">
+            A smarter way to report civic problems, identify urgent
+            issues and track their progress.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.subheader("Civic Overview")
+
+    total = len(complaints)
+    high = sum(1 for c in complaints if c.get("priority") == "High")
+    resolved = sum(1 for c in complaints if c.get("status") == "Resolved")
+    pending = total - resolved
+
+    a, b, c, d = st.columns(4)
+
+    a.metric("Total Reports", total)
+    b.metric("High Priority", high)
+    c.metric("Resolved", resolved)
+    d.metric("Pending", pending)
+
+    st.divider()
+
+    st.subheader("How Civora Works")
+
+    x, y, z = st.columns(3)
+
+    with x:
+        st.markdown("### 📢 Report")
+        st.write("Citizens submit civic complaints with descriptions and locations.")
+
+    with y:
+        st.markdown("### 🧠 Analyse")
+        st.write("Rule-based analysis categorizes complaints and identifies priority and possible duplicates.")
+
+    with z:
+        st.markdown("### 📍 Track")
+        st.write("Administrators manage complaint status while citizens track progress.")
+
+    st.divider()
+        # Recent Complaints
+    st.subheader("Recent Complaints")
+
+    if complaints:
+        recent = sorted(
+            complaints,
+            key=lambda x: x.get("created_at", ""),
+            reverse=True
+        )[:5]
+
+        for complaint in recent:
+            with st.container(border=True):
+                st.write(f"**{complaint.get('complaint_id', 'N/A')}**")
+                st.write(complaint.get("description", "No description"))
+                st.caption(
+                    f"Priority: {complaint.get('priority', 'N/A')} | "
+                    f"Status: {complaint.get('status', 'N/A')}"
+                )
+    else:
+        st.info("No complaints submitted yet.")
+
+    st.divider()
+
+    st.subheader("Our Mission")
+    st.write(
+        "Civora aims to make civic issue reporting more transparent, "
+        "organized and actionable by connecting citizen reports "
+        "with a clear complaint management workflow."
+    )
+
+elif page == "Submit Complaint":
     st.title("📢 Submit a Civic Complaint")
     st.write("Report problems like waterlogging, damaged roads, garbage, broken lights etc.")
 
@@ -101,6 +358,7 @@ if page == "Submit Complaint":
 
         description = st.text_area("Describe the problem clearly", height=130)
 
+
         col3, col4 = st.columns(2)
         with col3:
             lat = st.number_input("Latitude", value=12.9716, format="%.6f")
@@ -114,6 +372,15 @@ if page == "Submit Complaint":
                 st.error("Please fill both Description and Location.")
             else:
                 analysis = analyze_complaint(description, location)
+                if category_choice != "Auto-detect":
+                    analysis["category"] = category_choice
+                duplicates = find_possible_duplicates(
+                    description,
+                    location,
+                    analysis["category"],
+                    complaints
+                )
+
                 new_id = generate_id(complaints)
 
                 new_complaint = {
@@ -139,6 +406,18 @@ if page == "Submit Complaint":
                 st.success(f"Complaint submitted successfully! Your Report ID is **{new_id}**")
                 st.balloons()
 
+                if duplicates:
+                    st.warning("⚠️ Possible duplicate complaints detected!")
+
+                    for duplicate in duplicates:
+                        st.write(
+                            f"Possible match: {duplicate['complaint_id']} | "
+                            f"Location: {duplicate['location']} | "
+                            f"Similarity: {duplicate['similarity']}%"
+                        )
+                else:
+                    st.success("No similar complaints detected.")
+
                 st.subheader("AI Analysis")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Priority", analysis["priority"])
@@ -148,6 +427,7 @@ if page == "Submit Complaint":
                 st.markdown(f"**Summary:** {analysis['summary']}")
                 st.info(f"**Why this priority?** {analysis['reason']}")
                 st.warning("Please save your Report ID to track progress later.")
+
 
 elif page == "Admin Dashboard":
     st.title("🛡️ Admin Dashboard")
@@ -167,11 +447,41 @@ elif page == "Admin Dashboard":
         m1.metric("Total Complaints", len(complaints))
         m2.metric("High Priority", high)
         m3.metric("Medium Priority", medium)
+        
         m4.metric("Low Priority", low)
 
         st.divider()
 
+        # Complaint Analytics
+        st.subheader("📊 Complaint Analytics")
+
+        priority_counts = pd.Series(
+            [c.get("priority", "Low") for c in complaints]
+        ).value_counts().reindex(
+            ["High", "Medium", "Low"], fill_value=0
+        )
+
+        status_counts = pd.Series(
+            [c.get("status", "Received") for c in complaints]
+        ).value_counts().reindex(
+            ["Received", "Assigned", "In Progress", "Resolved"],
+            fill_value=0
+        )
+
+        chart1, chart2 = st.columns(2)
+
+        with chart1:
+            st.markdown("**Complaints by Priority**")
+            st.bar_chart(priority_counts)
+
+        with chart2:
+            st.markdown("**Complaints by Status**")
+            st.bar_chart(status_counts)
+
+        st.divider()
+
         df = pd.DataFrame(sorted_complaints)
+
         show_cols = ["complaint_id", "priority", "category", "status", "location", "summary"]
         available_cols = [c for c in show_cols if c in df.columns]
         st.dataframe(df[available_cols], use_container_width=True, height=380)

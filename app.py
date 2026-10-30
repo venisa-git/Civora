@@ -195,14 +195,49 @@ elif page == "Admin Dashboard":
                 st.success(f"Updated {selected_id} → {new_status}")
                 st.rerun()
 
+        
         st.subheader("Complaints Map")
+
         m = folium.Map(location=[12.97, 77.59], zoom_start=12)
-        color_map = {"High": "red", "Medium": "orange", "Low": "green"}
+
+        color_map = {
+            "High": "red",
+            "Medium": "orange",
+            "Low": "green"
+        }
+
+        plotted_count = 0
+        missing_location_count = 0
 
         for c in complaints:
-            lat = c.get("latitude") or 12.97
-            lon = c.get("longitude") or 77.59
+
+            location_data = c.get("location", {})
+
+            if isinstance(location_data, dict):
+                lat = c.get("latitude", location_data.get("latitude"))
+                lon = c.get("longitude", location_data.get("longitude"))
+            else:
+                lat = c.get("latitude")
+                lon = c.get("longitude")
+
+            if lat is None or lon is None:
+                missing_location_count += 1
+                continue
+
+            try:
+                lat = float(lat)
+                lon = float(lon)
+
+                if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+                    missing_location_count += 1
+                    continue
+
+            except (ValueError, TypeError):
+                missing_location_count += 1
+                continue
+
             color = color_map.get(c.get("priority", "Low"), "blue")
+
             folium.Marker(
                 [lat, lon],
                 popup=f"{c['complaint_id']} | {c.get('priority')} | {c.get('category')}",
@@ -210,7 +245,13 @@ elif page == "Admin Dashboard":
                 icon=folium.Icon(color=color)
             ).add_to(m)
 
+            plotted_count += 1
+
         st_folium(m, width=None, height=420)
+
+        st.caption(f"Complaints plotted on map: {plotted_count}")
+        st.caption(f"Complaints with missing or invalid coordinates: {missing_location_count}")
+
 
 elif page == "Track Complaint":
     st.title("Track Your Complaint")
